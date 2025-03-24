@@ -44,7 +44,7 @@ router.post("/signup", async (req, res) => {
       email: email,
       telephone: phoneNumber,
       password: hashedPassword,
-      role: "user"
+      role: "user",
     };
 
     const result = await createUser(userId);
@@ -63,12 +63,12 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-router.post("/login", async (req, res) =>{
-  const {email, password} = req.body;
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
 
-  try{
+  try {
     const user = await getUserByEmail(email);
-    if (! user) {
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: "Nincs ilyen felhasználó",
@@ -84,8 +84,10 @@ router.post("/login", async (req, res) =>{
       });
     }
 
-    const token = jwt.sign( {email: user.email, role: user.role}, secret, {expiresIn: "1h"});
-    res.cookie("token", token, {httpOnly: true, secure: true});
+    const token = jwt.sign({ email: user.email, role: user.role }, secret, {
+      expiresIn: "1h",
+    });
+    res.cookie("token", token, { httpOnly: true, secure: true });
 
     return res.status(200).json({
       success: true,
@@ -99,8 +101,7 @@ router.post("/login", async (req, res) =>{
         role: user.role,
       },
     });
-
-  }catch (error) {
+  } catch (error) {
     console.error("Bejelentkezési hiba:", error);
     res.status(500).json({
       success: false,
@@ -109,5 +110,35 @@ router.post("/login", async (req, res) =>{
   }
 });
 
-export default router;
+router.get("/current", async (req, res) => {
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(401).json({ error: "Nincs token" });
+  }
 
+  try {
+    const decodedToken = jwt.verify(token, secret);
+    const user = await getUserByEmail(decodedToken.email);
+
+    if (!user) {
+      return res.status(404).json({ error: "Felhasználó nem található" });
+    }
+
+    return res.json({
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      role: user.role,
+    });
+  } catch (error) {
+    return res.status(401).json({ error: "Hibás token" });
+  }
+});
+
+router.get("/logout", (req, res) => {
+  res.clearCookie("auth");
+  res.locals.user = null;
+  res.status(200).json({ message: "Sikeres kijelentkezés" });
+});
+
+export default router;
